@@ -223,17 +223,24 @@
       }
     ];
 
+    // Cấu hình Supabase Cloud mặc định (Dành cho tất cả bạn bè mở web)
+    const CLOUD_CONFIG = {
+      url: 'https://rsdxrgqifygsojvxqrfv.supabase.co',
+      key: 'sb_publishable_iFuyHY5IlDDWdeJWvtJKaQ_QfdVELqV',
+      defaultPin: '1234'
+    };
+
     let places = [];
     let currentCategory = 'all';
     let searchQuery = '';
     let supabaseClient = null;
 
-    // Lấy config từ LocalStorage
+    // Lấy config (Ưu tiên cấu hình cài sẵn, sau đó mới đến LocalStorage)
     function getStoredConfig() {
       return {
-        url: localStorage.getItem('SP_URL') || '',
-        key: localStorage.getItem('SP_KEY') || '',
-        pin: localStorage.getItem('ADMIN_PIN') || '1234'
+        url: localStorage.getItem('SP_URL') || CLOUD_CONFIG.url,
+        key: localStorage.getItem('SP_KEY') || CLOUD_CONFIG.key,
+        pin: localStorage.getItem('ADMIN_PIN') || CLOUD_CONFIG.defaultPin
       };
     }
 
