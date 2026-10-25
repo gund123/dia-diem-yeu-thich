@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Địa Điểm & Quán Ăn Yêu Thích Của Tôi - Neobrutalism</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #FEF9E7;
+    }
+    .neo-shadow { box-shadow: 4px 4px 0px 0px #000; }
+    .neo-shadow-lg { box-shadow: 6px 6px 0px 0px #000; }
+    .neo-shadow-sm { box-shadow: 2px 2px 0px 0px #000; }
+    .neo-btn { transition: all 0.1s ease-in-out; }
+    .neo-btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px 0px #000; }
+    .neo-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px 0px #000; }
+  </style>
+</head>
+<body class="text-black min-h-screen pb-16 selection:bg-[#FF6B6B] selection:text-white">
+
+  <!-- Header -->
+  <header class="bg-[#FFE600] border-b-4 border-black sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 bg-[#FF6B6B] border-2 border-black neo-shadow flex items-center justify-center font-black text-2xl text-white">
+          🍜
+        </div>
+        <div>
+          <h1 class="text-2xl font-black tracking-tight uppercase leading-none">Quán Ngon Của Tôi</h1>
+          <p class="text-xs font-bold text-black/80 mt-1 uppercase tracking-wider">Đã thử & Cực kỳ đề xuất 🔥</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnConfig" title="Cấu hình Supabase" class="neo-btn bg-white border-2 border-black w-10 h-10 neo-shadow flex items-center justify-center font-black text-base cursor-pointer">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+        <button id="btnOpenAddModal" class="neo-btn bg-[#00F0FF] hover:bg-[#3bf4ff] border-2 border-black px-4 sm:px-5 py-2.5 neo-shadow font-extrabold text-sm flex items-center gap-2 cursor-pointer uppercase">
+          <i class="fa-solid fa-plus-circle text-base"></i> <span class="hidden sm:inline">Thêm quán</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter & Search Section -->
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <div class="flex flex-col sm:flex-row gap-4 items-center justify-between mb-8">
+      <!-- Search Input -->
+      <div class="relative w-full sm:w-80">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-black text-sm"></i>
+        <input 
+          id="searchInput" 
+          type="text" 
+          placeholder="Tìm quán, món ăn, địa chỉ..." 
+          class="w-full pl-11 pr-4 py-2.5 bg-white border-2 border-black neo-shadow text-sm font-bold placeholder-black/50 focus:outline-none focus:bg-[#FFFDF0]"
+        />
+      </div>
+
+      <!-- Categories Pills -->
+      <div class="flex gap-2.5 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-none" id="categoryList">
+        <button class="cat-pill neo-btn px-4 py-2 border-2 border-black font-extrabold text-xs uppercase bg-[#FF6B6B] text-white neo-shadow cursor-pointer" data-cat="all">Tất cả</button>
+        <button class="cat-pill neo-btn px-4 py-2 border-2 border-black font-extrabold text-xs uppercase bg-white text-black neo-shadow hover:bg-[#FFE600] cursor-pointer" data-cat="Ăn sáng">Ăn sáng</button>
+        <button class="cat-pill neo-btn px-4 py-2 border-2 border-black font-extrabold text-xs uppercase bg-white text-black neo-shadow hover:bg-[#FFE600] cursor-pointer" data-cat="Cà phê">Cà phê</button>
+        <button class="cat-pill neo-btn px-4 py-2 border-2 border-black font-extrabold text-xs uppercase bg-white text-black neo-shadow hover:bg-[#FFE600] cursor-pointer" data-cat="Ăn tối / Nhậu">Ăn tối / Nhậu</button>
+        <button class="cat-pill neo-btn px-4 py-2 border-2 border-black font-extrabold text-xs uppercase bg-white text-black neo-shadow hover:bg-[#FFE600] cursor-pointer" data-cat="Ăn vặt">Ăn vặt</button>
+      </div>
+    </div>
+
+    <!-- Loading / Notice Bar -->
+    <div id="statusNotice" class="hidden mb-6 p-4 bg-[#FFE600] border-2 border-black neo-shadow font-bold text-sm flex items-center justify-between">
+      <span id="statusNoticeText">Đang tải dữ liệu...</span>
+      <button onclick="document.getElementById('statusNotice').classList.add('hidden')" class="font-black">✕</button>
+    </div>
+
+    <!-- Cards Grid -->
+    <div id="placesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Dữ liệu sẽ được render động bằng Javascript tại đây -->
+    </div>
+  </main>
+
+  <!-- Modal Cấu hình Supabase & Mã PIN (Admin Settings) -->
+  <div id="configModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-[#FEF9E7] w-full max-w-md border-4 border-black neo-shadow-lg p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-black text-lg uppercase">⚙️ Cài Đặt Kết Nối Cloud</h3>
+        <button id="btnCloseConfig" class="font-black text-lg">✕</button>
+      </div>
+      <p class="text-xs font-bold text-black/70 mb-4">
+        Nhập thông tin Supabase để kết nối Cloud lưu ảnh và danh sách. Dữ liệu này chỉ lưu trên máy bạn!
+      </p>
+      <form id="configForm" class="space-y-3">
+        <div>
+          <label class="block text-xs font-black uppercase mb-1">Supabase Project URL</label>
+          <input type="text" id="cfgUrl" placeholder="https://xyz.supabase.co" class="w-full px-3 py-2 border-2 border-black text-xs font-bold bg-white">
+        </div>
+        <div>
+          <label class="block text-xs font-black uppercase mb-1">Supabase Anon Key</label>
+          <input type="password" id="cfgKey" placeholder="eyJhbGciOi..." class="w-full px-3 py-2 border-2 border-black text-xs font-bold bg-white">
+        </div>
+        <div>
+          <label class="block text-xs font-black uppercase mb-1">Mã PIN Thêm Quán (Tránh bạn bè nghịch)</label>
+          <input type="password" id="cfgPin" placeholder="Mặc định: 1234" class="w-full px-3 py-2 border-2 border-black text-xs font-bold bg-white">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="submit" class="neo-btn px-4 py-2 bg-[#00F0FF] border-2 border-black font-black text-xs uppercase">Lưu Cài Đặt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Xác Nhận Mã PIN Khi Thêm Quán -->
+  <div id="pinModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-[#FEF9E7] w-full max-w-xs border-4 border-black neo-shadow-lg p-5">
+      <h3 class="font-black text-base uppercase mb-2">🔒 Nhập Mã PIN Admin</h3>
+      <p class="text-xs font-bold text-black/70 mb-3">Chỉ chủ trang web mới có quyền thêm/sửa quán.</p>
+      <input type="password" id="inputPin" placeholder="Nhập PIN (mặc định: 1234)" class="w-full px-3 py-2 border-2 border-black text-sm font-black text-center mb-3 bg-white">
+      <div class="flex justify-end gap-2">
+        <button id="btnCancelPin" class="neo-btn px-3 py-1.5 border-2 border-black bg-white font-bold text-xs">Hủy</button>
+        <button id="btnConfirmPin" class="neo-btn px-4 py-1.5 border-2 border-black bg-[#FFE600] font-black text-xs">Mở Form</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Quán Mới -->
+  <div id="addModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-[#FEF9E7] w-full max-w-lg border-4 border-black neo-shadow-lg my-8">
+      <div class="px-5 py-4 bg-[#FFE600] border-b-2 border-black flex items-center justify-between">
+        <h3 class="font-black text-lg uppercase tracking-wide">⚡ Thêm Quán Yêu Thích</h3>
+        <button id="btnCloseModal" class="neo-btn bg-white border-2 border-black w-8 h-8 flex items-center justify-center font-black neo-shadow-sm hover:bg-[#FF6B6B] hover:text-white cursor-pointer">✕</button>
+      </div>
+
+      <form id="addPlaceForm" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-black uppercase mb-1.5">Tên quán ăn / Địa điểm *</label>
+          <input type="text" id="pName" required placeholder="VD: Bún chả Đắc Kim" class="w-full px-3.5 py-2.5 bg-white border-2 border-black neo-shadow-sm text-sm font-bold focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-black uppercase mb-1.5">Phân loại</label>
+            <select id="pCategory" class="w-full px-3.5 py-2.5 bg-white border-2 border-black neo-shadow-sm text-sm font-bold focus:outline-none">
+              <option value="Ăn sáng">Ăn sáng</option>
+              <option value="Cà phê">Cà phê</option>
+              <option value="Ăn tối / Nhậu">Ăn tối / Nhậu</option>
+              <option value="Ăn vặt">Ăn vặt</option>
+              <option value="Du lịch / Check-in">Du lịch / Check-in</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-black uppercase mb-1.5">Đánh giá sao</label>
+            <select id="pRating" class="w-full px-3.5 py-2.5 bg-white border-2 border-black neo-shadow-sm text-sm font-bold focus:outline-none">
+              <option value="5.0">⭐⭐⭐⭐⭐ (5.0)</option>
+              <option value="4.8">⭐⭐⭐⭐ (4.8)</option>
+              <option value="4.5">⭐⭐⭐⭐ (4.5)</option>
+              <option value="4.0">⭐⭐⭐⭐ (4.0)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase mb-1.5">Mức giá ước tính</label>
+          <input type="text" id="pPrice" placeholder="VD: ~50k - 80k" class="w-full px-3.5 py-2.5 bg-white border-2 border-black neo-shadow-sm text-sm font-bold focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase mb-1.5">Hình ảnh (Chụp hoặc Tải file) *</label>
+          <input type="file" id="pImageFile" accept="image/*" class="w-full p-2 bg-white border-2 border-black neo-shadow-sm text-xs font-bold file:mr-3 file:py-1.5 file:px-3 file:border-2 file:border-black file:text-xs file:font-black file:bg-[#00F0FF] hover:file:bg-[#FFE600] cursor-pointer">
+          <input type="text" id="pImageUrl" placeholder="Hoặc dán trực tiếp link ảnh online..." class="mt-2 w-full px-3.5 py-2 bg-white border-2 border-black text-xs font-semibold">
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase mb-1.5">Địa chỉ quán</label>
+          <input type="text" id="pAddress" placeholder="VD: 1 Hàng Mành, Hoàn Kiếm, Hà Nội" class="w-full px-3.5 py-2.5 bg-white border-2 border-black neo-shadow-sm text-sm font-bold focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-black uppercase mb-1.5">Món ngon nên thử / Ghi chú</label>
+          <textarea id="pReview" rows="2" placeholder="Ghi chú món ngon nhất ở đây..." class="w-full px-3.5 py-2.5 bg-white border-2 border-black neo-shadow-sm text-sm font-bold focus:outline-none"></textarea>
+        </div>
+
+        <div class="pt-3 border-t-2 border-black flex justify-end gap-3">
+          <button type="button" id="btnCancelModal" class="neo-btn px-4 py-2 border-2 border-black bg-white font-extrabold text-xs uppercase neo-shadow-sm cursor-pointer">Hủy</button>
+          <button type="submit" id="btnSubmitPlace" class="neo-btn px-6 py-2 border-2 border-black bg-[#FF6B6B] text-white font-black text-xs uppercase neo-shadow-sm cursor-pointer flex items-center gap-2">
+            <span>Lưu Quán Ngay</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC TÍCH HỢP TICKET 2 & 3 -->
+  <script>
+    // Dữ liệu mặc định ban đầu nếu chưa kết nối cloud
+    const DEFAULT_PLACES = [
+      {
+        id: 'demo-1',
+        name: 'Phở Bò Thìn Lò Đúc',
+        category: 'Ăn sáng',
+        rating: '4.8',
+        price: '~65k - 90k',
+        address: '13 Lò Đúc, Hai Bà Trưng, Hà Nội',
+        review: 'Phở bò xào lăn thơm phức ngập hành hoa, kèm thêm 2 quẩy giòn tan.',
+        image_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80'
+      },
+      {
+        id: 'demo-2',
+        name: 'Yên Cafe - Giảng Võ',
+        category: 'Cà phê',
+        rating: '4.9',
+        price: '~45k - 60k',
+        address: 'Ngõ 189 Giảng Võ, Ba Đình',
+        review: 'Sapa Cafe kem béo ngọt dịu, không gian xanh mát cực chill.',
+        image_url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80'
+      }
+    ];
+
+    let places = [];
+    let currentCategory = 'all';
+    let searchQuery = '';
+    let supabaseClient = null;
+
+    // Lấy config từ LocalStorage
+    function getStoredConfig() {
+      return {
+        url: localStorage.getItem('SP_URL') || '',
+        key: localStorage.getItem('SP_KEY') || '',
+        pin: localStorage.getItem('ADMIN_PIN') || '1234'
+      };
+    }
+
+    // Khởi tạo Supabase nếu có thông tin
+    function initSupabase() {
+      const cfg = getStoredConfig();
+      if (cfg.url && cfg.key && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(cfg.url, cfg.key);
+          return true;
+        } catch(e) {
+          console.error("Lỗi Supabase:", e);
+        }
+      }
+      return false;
+    }
+
+    // Tải dữ liệu (Ưu tiên Cloud Supabase -> LocalStorage -> Dữ liệu mẫu)
+    async function loadPlaces() {
+      const notice = document.getElementById('statusNotice');
+      const noticeText = document.getElementById('statusNoticeText');
+
+      if (initSupabase()) {
+        try {
+          notice.classList.remove('hidden');
+          noticeText.textContent = "⚡ Đang đồng bộ dữ liệu từ Cloud Supabase...";
+          const { data, error } = await supabaseClient.from('places').select('*').order('created_at', { ascending: false });
+          if (!error && data) {
+            places = data;
+            notice.classList.add('hidden');
+            renderPlaces();
+            return;
+          }
+        } catch(err) {
+          console.warn("Chưa đọc được từ Supabase, chuyển sang bộ nhớ máy");
+        }
+      }
+
+      // Fallback: LocalStorage
+      const localData = localStorage.getItem('MY_FAVORITE_PLACES');
+      if (localData) {
+        places = JSON.parse(localData);
+      } else {
+        places = [...DEFAULT_PLACES];
+        localStorage.setItem('MY_FAVORITE_PLACES', JSON.stringify(places));
+      }
+      notice.classList.add('hidden');
+      renderPlaces();
+    }
+
+    // Vẽ danh sách quán ra giao diện
+    function renderPlaces() {
+      const grid = document.getElementById('placesGrid');
+      
+      const filtered = places.filter(p => {
+        const matchCategory = currentCategory === 'all' || p.category === currentCategory;
+        const q = searchQuery.toLowerCase().trim();
+        const matchSearch = !q || 
+          p.name.toLowerCase().includes(q) || 
+          (p.address && p.address.toLowerCase().includes(q)) || 
+          (p.review && p.review.toLowerCase().includes(q));
+        return matchCategory && matchSearch;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-12 text-center border-3 border-dashed border-black bg-white neo-shadow p-8">
+            <p class="text-3xl mb-2">🍜</p>
+            <p class="font-black text-lg uppercase">Chưa tìm thấy quán nào!</p>
+            <p class="text-xs font-bold text-black/60 mt-1">Thử đổi từ khóa hoặc chọn phân loại khác nhé.</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(p => {
+        const mapsLink = p.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.address)}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name)}`;
+        const fallbackImg = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80';
+        
+        return `
+          <div class="bg-white border-2 border-black neo-shadow-lg flex flex-col transition hover:-translate-y-1">
+            <div class="relative h-52 bg-black border-b-2 border-black overflow-hidden">
+              <img src="${p.image_url || fallbackImg}" alt="${p.name}" class="w-full h-full object-cover onerror="this.src='${fallbackImg}'"">
+              <span class="absolute top-3 left-3 bg-[#FFE600] border-2 border-black px-3 py-1 font-black text-xs uppercase neo-shadow-sm">
+                ${p.category || 'Địa điểm'}
+              </span>
+              <span class="absolute bottom-3 right-3 bg-white border-2 border-black px-2.5 py-1 font-black text-xs flex items-center gap-1.5 neo-shadow-sm">
+                <i class="fa-solid fa-star text-amber-500"></i> ${p.rating || '5.0'} / 5
+              </span>
+            </div>
+            
+            <div class="p-5 flex-1 flex flex-col justify-between bg-white">
+              <div>
+                <h3 class="font-black text-xl leading-snug uppercase">${p.name}</h3>
+                <p class="text-xs font-bold text-black/70 mt-1.5 flex items-center gap-1.5">
+                  <i class="fa-solid fa-location-dot text-black"></i> ${p.address || 'Chưa cập nhật địa chỉ'}
+                </p>
+                ${p.review ? `
+                  <div class="mt-3.5 bg-[#FFF9E5] p-3 border-2 border-black neo-shadow-sm">
+                    <span class="font-extrabold text-xs text-black block mb-0.5 uppercase tracking-wide">💡 Món ngon / Ghi chú:</span>
+                    <p class="text-xs font-semibold text-black/90">${p.review}</p>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="mt-5 pt-3 border-t-2 border-black flex items-center justify-between">
+                <span class="text-xs font-extrabold bg-[#E2F0D9] border border-black px-2 py-1">${p.price || 'Bình dân'}</span>
+                <a href="${mapsLink}" target="_blank" class="neo-btn inline-flex items-center gap-2 px-3.5 py-2 bg-[#00F0FF] border-2 border-black text-black font-extrabold text-xs neo-shadow-sm uppercase">
+                  <i class="fa-solid fa-diamond-turn-right"></i> Bản đồ
+                </a>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Modal PIN & Bảo mật
+    const pinModal = document.getElementById('pinModal');
+    const addModal = document.getElementById('addModal');
+    const inputPin = document.getElementById('inputPin');
+
+    document.getElementById('btnOpenAddModal').addEventListener('click', () => {
+      inputPin.value = '';
+      pinModal.classList.remove('hidden');
+      inputPin.focus();
+    });
+
+    document.getElementById('btnCancelPin').addEventListener('click', () => pinModal.classList.add('hidden'));
+
+    document.getElementById('btnConfirmPin').addEventListener('click', () => {
+      const cfg = getStoredConfig();
+      if (inputPin.value === cfg.pin || (!cfg.pin && inputPin.value === '1234')) {
+        pinModal.classList.add('hidden');
+        addModal.classList.remove('hidden');
+      } else {
+        alert("Sai mã PIN Admin! Vui lòng kiểm tra lại trong nút Cài Đặt (Hình bánh răng).");
+      }
+    });
+
+    document.getElementById('btnCloseModal').addEventListener('click', () => addModal.classList.add('hidden'));
+    document.getElementById('btnCancelModal').addEventListener('click', () => addModal.classList.add('hidden'));
+
+    // Modal Config
+    const configModal = document.getElementById('configModal');
+    document.getElementById('btnConfig').addEventListener('click', () => {
+      const cfg = getStoredConfig();
+      document.getElementById('cfgUrl').value = cfg.url;
+      document.getElementById('cfgKey').value = cfg.key;
+      document.getElementById('cfgPin').value = cfg.pin;
+      configModal.classList.remove('hidden');
+    });
+    document.getElementById('btnCloseConfig').addEventListener('click', () => configModal.classList.add('hidden'));
+
+    document.getElementById('configForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      localStorage.setItem('SP_URL', document.getElementById('cfgUrl').value.trim());
+      localStorage.setItem('SP_KEY', document.getElementById('cfgKey').value.trim());
+      localStorage.setItem('ADMIN_PIN', document.getElementById('cfgPin').value.trim() || '1234');
+      configModal.classList.add('hidden');
+      alert("Đã lưu cấu hình! Đang tải lại dữ liệu...");
+      loadPlaces();
+    });
+
+    // Chuyển file ảnh thành Base64 (Lưu trực tiếp cực tiện lợi không lo lỗi mạng)
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    }
+
+    // Xử lý Thêm Quán Mới
+    document.getElementById('addPlaceForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('btnSubmitPlace');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span>Đang lưu...</span>`;
+
+      try {
+        let finalImageUrl = document.getElementById('pImageUrl').value.trim();
+        const fileInput = document.getElementById('pImageFile');
+
+        // Nếu người dùng chọn ảnh từ máy / điện thoại
+        if (fileInput.files && fileInput.files[0]) {
+          const file = fileInput.files[0];
+          
+          // Nếu có Supabase Storage: Upload lên bucket 'place-images'
+          if (supabaseClient) {
+            try {
+              const fileExt = file.name.split('.').pop();
+              const fileName = `${Date.now()}.${fileExt}`;
+              const { data: uploadData, error: uploadErr } = await supabaseClient.storage.from('place-images').upload(fileName, file);
+              if (!uploadErr) {
+                const { data: publicUrlData } = supabaseClient.storage.from('place-images').getPublicUrl(fileName);
+                finalImageUrl = publicUrlData.publicUrl;
+              }
+            } catch(upErr) {
+              console.warn("Lỗi upload cloud, fallback base64", upErr);
+            }
+          }
+          
+          // Nếu không dùng cloud hoặc upload lỗi -> Tự lưu Base64 máy
+          if (!finalImageUrl) {
+            finalImageUrl = await fileToBase64(file);
+          }
+        }
+
+        const newPlace = {
+          id: 'p_' + Date.now(),
+          name: document.getElementById('pName').value.trim(),
+          category: document.getElementById('pCategory').value,
+          rating: document.getElementById('pRating').value,
+          price: document.getElementById('pPrice').value.trim() || '~50k',
+          address: document.getElementById('pAddress').value.trim(),
+          review: document.getElementById('pReview').value.trim(),
+          image_url: finalImageUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+          created_at: new Date().toISOString()
+        };
+
+        // Nếu có Supabase, lưu vào table
+        if (supabaseClient) {
+          await supabaseClient.from('places').insert([newPlace]);
+        }
+
+        // Luôn cập nhật vào danh sách cục bộ
+        places.unshift(newPlace);
+        localStorage.setItem('MY_FAVORITE_PLACES', JSON.stringify(places));
+
+        renderPlaces();
+        addModal.classList.add('hidden');
+        document.getElementById('addPlaceForm').reset();
+        alert("🎉 Đã thêm quán mới thành công!");
+      } catch(err) {
+        alert("Lỗi khi lưu quán: " + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span>Lưu Quán Ngay</span>`;
+      }
+    });
+
+    // Lọc & Tìm kiếm
+    document.querySelectorAll('.cat-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.cat-pill').forEach(b => {
+          b.className = 'cat-pill neo-btn px-4 py-2 border-2 border-black font-extrabold text-xs uppercase bg-white text-black neo-shadow hover:bg-[#FFE600] cursor-pointer';
+        });
+        e.target.className = 'cat-pill neo-btn px-4 py-2 border-2 border-black font-extrabold text-xs uppercase bg-[#FF6B6B] text-white neo-shadow cursor-pointer';
+        currentCategory = e.target.getAttribute('data-cat');
+        renderPlaces();
+      });
+    });
+
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderPlaces();
+    });
+
+    // Khởi chạy
+    loadPlaces();
+  </script>
+</body>
+</html>
